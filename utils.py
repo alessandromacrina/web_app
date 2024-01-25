@@ -46,18 +46,31 @@ def compute_data(result, colonne, hour):
 
  
 def prepare_df(df, motivo):
-    match motivo:
-        case 'Lavoro':
+    # match non compatibile con tutte le versioni di python, meglio usare if elif
+    # match motivo:
+    #     case 'Lavoro':
+    #             return df[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO","LAV_GOMMA","LAV_BICI","LAV_PIEDI","LAV_ALTRO"]].transpose()
+    #     case 'Studenti':
+    #         return df[["STU_COND","STU_PAX","STU_MOTO","STU_FERRO","STU_GOMMA","STU_BICI","STU_PIEDI","STU_ALTRO"]].transpose()
+    #     case 'Occasionale':
+    #         return df[["OCC_COND","OCC_PAX","OCC_MOTO","OCC_FERRO","OCC_GOMMA","OCC_BICI","OCC_PIEDI","OCC_ALTRO"]].transpose()
+    #     case 'Ritorno':
+    #         return df[["RIT_COND","RIT_PAX","RIT_MOTO","RIT_FERRO","RIT_GOMMA","RIT_BICI","RIT_PIEDI","RIT_ALTRO"]].transpose()
+    #     case 'Affari':
+    #         return df[["AFF_COND","AFF_PAX","AFF_MOTO","AFF_FERRO","AFF_GOMMA","AFF_BICI","AFF_PIEDI","AFF_ALTRO"]].transpose()
+    #     case _:
+    #         return None
+        if 'Lavoro':
                 return df[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO","LAV_GOMMA","LAV_BICI","LAV_PIEDI","LAV_ALTRO"]].transpose()
-        case 'Studenti':
+        elif 'Studenti':
             return df[["STU_COND","STU_PAX","STU_MOTO","STU_FERRO","STU_GOMMA","STU_BICI","STU_PIEDI","STU_ALTRO"]].transpose()
-        case 'Occasionale':
+        elif 'Occasionale':
             return df[["OCC_COND","OCC_PAX","OCC_MOTO","OCC_FERRO","OCC_GOMMA","OCC_BICI","OCC_PIEDI","OCC_ALTRO"]].transpose()
-        case 'Ritorno':
+        elif 'Ritorno':
             return df[["RIT_COND","RIT_PAX","RIT_MOTO","RIT_FERRO","RIT_GOMMA","RIT_BICI","RIT_PIEDI","RIT_ALTRO"]].transpose()
-        case 'Affari':
+        elif 'Affari':
             return df[["AFF_COND","AFF_PAX","AFF_MOTO","AFF_FERRO","AFF_GOMMA","AFF_BICI","AFF_PIEDI","AFF_ALTRO"]].transpose()
-        case _:
+        else:
             return None
 
 
