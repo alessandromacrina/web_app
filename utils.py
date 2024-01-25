@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
-import time
-import os
+
 
 # rimuove i numeri alla fine di una stringa
 def remove_number_at_end(df, columns):
@@ -85,17 +84,17 @@ def hp_threshold(df, column, low_threshold, high_threshold):
     df[column] = df[column].clip(lower=low_threshold, upper=high_threshold)
     return df
 
-def wait_until_file_downloaded(file_path, max_wait_seconds=10):
-    start_time = time.time()
-    while not os.path.exists(file_path):
-        if time.time() - start_time > max_wait_seconds:
-            raise Exception(f"Timeout after {max_wait_seconds} seconds waiting for file download")
-        time.sleep(1)
+# def wait_until_file_downloaded(file_path, max_wait_seconds=10):
+#     start_time = time.time()
+#     while not os.path.exists(file_path):
+#         if time.time() - start_time > max_wait_seconds:
+#             raise Exception(f"Timeout after {max_wait_seconds} seconds waiting for file download")
+#         time.sleep(1)
 
-    initial_size = os.path.getsize(file_path)
-    while True:
-        current_size = os.path.getsize(file_path)
-        if current_size == initial_size:
-            break
-        initial_size = current_size
-        time.sleep(1)
+#     initial_size = os.path.getsize(file_path)
+#     while True:
+#         current_size = os.path.getsize(file_path)
+#         if current_size == initial_size:
+#             break
+#         initial_size = current_size
+#         time.sleep(1)
