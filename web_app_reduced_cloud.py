@@ -10,10 +10,10 @@ import streamlit.components.v1 as components
 
 #POSIZIONE CSV
 
-csv_matrice = 'https://drive.google.com/file/d/1OjMV_13wHYdRSHM2hQtOP1uy7iTSExxH/view?usp=share_link'
-csv_posizione = 'https://drive.google.com/file/d/1hKqonKviR5QOu5cCNkBJQ7ri9GWmhexE/view?usp=share_link'
-csv_tur_prov = 'https://drive.google.com/file/d/1MXekSaQdna_MYrpZS8y8pDMkYXOKP64d/view?usp=share_link'
-csv_tur_com = 'https://drive.google.com/file/d/1scr2Vp-yxKelPGfuSDCGH6VTELkqp4g7/view?usp=share_link'
+parquet_matrice = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/matrice_od_2020_passeggeri.parquet'
+parquet_posizione = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/pos.parquet'
+parquet_tur_prov = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.parquet'
+parquet_tur_com = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.parquet'
 
 ############################################################
 
@@ -69,11 +69,11 @@ vuoto = True
 # SESSION STATE
 
 if 'posizione' not in st.session_state:
-    st.session_state.posizione = pd.read_csv(csv_posizione)
+    st.session_state.posizione = pd.read_parquet(parquet_posizione)
     convert_columns_to_lowercase(st.session_state.posizione, ('comune', 'provincia'))
 
 if 'database' not in  st.session_state:
-    st.session_state.database = pd.read_csv(csv_matrice)
+    st.session_state.database = pd.read_parquet(parquet_matrice)
     remove_number_at_end(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     convert_columns_to_lowercase(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     st.session_state.database = st.session_state.database.merge(st.session_state.posizione, left_on='ZONA_ORIG', right_on='comune')
@@ -94,10 +94,10 @@ if 'province' not in st.session_state:
     st.session_state.province = st.session_state.database['PROV_ORIG'].drop_duplicates().sort_values().str.lower().tolist()
 
 if 'turisti' not in st.session_state:
-    st.session_state.turisti = pd.read_csv(csv_tur_prov)
+    st.session_state.turisti = pd.read_parquet(parquet_tur_prov)
 
 if 'turisti_comuni' not in st.session_state:
-    st.session_state.turisti_comuni = pd.read_csv(csv_tur_com)
+    st.session_state.turisti_comuni = pd.read_parquet(parquet_tur_com)
 
 
 
