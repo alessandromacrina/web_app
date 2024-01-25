@@ -95,7 +95,7 @@ if 'posizione' not in st.session_state:
     response2 = requests.get(url_posizione)
     with open('file2.parquet', 'wb') as f2:
         f2.write(response2.content)
-    wait_until_file_downloaded('file2.parquet')
+    #wait_until_file_downloaded('file2.parquet')
     st.session_state.posizione = pd.read_parquet('file2.parquet')
     convert_columns_to_lowercase(st.session_state.posizione, ('comune', 'provincia'))
 
@@ -104,7 +104,7 @@ if 'database' not in  st.session_state:
     response1 = requests.get(url_matrice)
     with open('file1.parquet', 'wb') as f1:
         f1.write(response1.content)
-    wait_until_file_downloaded('file1.parquet')
+    #wait_until_file_downloaded('file1.parquet')
     st.session_state.database = pd.read_parquet('file1.parquet')
     remove_number_at_end(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     convert_columns_to_lowercase(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
@@ -130,7 +130,7 @@ if 'turisti' not in st.session_state:
     response3 = requests.get(url_tur_prov)
     with open('file3.parquet', 'wb') as f3:
         f3.write(response3.content)
-    wait_until_file_downloaded('file3.parquet')
+    #wait_until_file_downloaded('file3.parquet')
     st.session_state.turisti = pd.read_parquet('file3.parquet')
 
 if 'turisti_comuni' not in st.session_state:
@@ -138,7 +138,7 @@ if 'turisti_comuni' not in st.session_state:
     response4 = requests.get(url_tur_com)
     with open('file4.parquet', 'wb') as f4:
         f4.write(response4.content)
-    wait_until_file_downloaded('file4.parquet')
+    #wait_until_file_downloaded('file4.parquet')
     st.session_state.turisti_comuni = pd.read_parquet('file4.parquet')
 
 
