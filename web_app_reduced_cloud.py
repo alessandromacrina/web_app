@@ -5,15 +5,37 @@ import plotly.express as px
 from utils import *
 import numpy as np
 import streamlit.components.v1 as components
+import requests
+
+
 
 ############################################################
 
 #POSIZIONE CSV
+# url_matrice = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet"
+# response1 = requests.get(url_matrice)
+# with open('file1.parquet', 'wb') as f1:
+#     f1.write(response1.content)
+# wait_until_file_downloaded('file1.parquet')
 
-parquet_matrice = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/matrice_od_2020_passeggeri.parquet'
-parquet_posizione = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/pos.parquet'
-parquet_tur_prov = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.parquet'
-parquet_tur_com = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.parquet'
+# url_posizione = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/pos.parquet"
+# response2 = requests.get(url_posizione)
+# with open('file2.parquet', 'wb') as f2:
+#     f2.write(response2.content)
+# wait_until_file_downloaded('file2.parquet')
+
+# url_tur_prov = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.parquet"
+# response3 = requests.get(url_tur_prov)
+# with open('file3.parquet', 'wb') as f3:
+#     f3.write(response3.content)
+# wait_until_file_downloaded('file3.parquet')
+
+# url_tur_com = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.parquet"
+# response4 = requests.get(url_tur_com)
+# with open('file4.parquet', 'wb') as f4:
+#     f4.write(response4.content)
+
+# wait_until_file_downloaded('file4.parquet')
 
 ############################################################
 
@@ -69,11 +91,21 @@ vuoto = True
 # SESSION STATE
 
 if 'posizione' not in st.session_state:
-    st.session_state.posizione = pd.read_parquet(parquet_posizione)
+    url_posizione = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/pos.parquet"
+    response2 = requests.get(url_posizione)
+    with open('file2.parquet', 'wb') as f2:
+        f2.write(response2.content)
+    wait_until_file_downloaded('file2.parquet')
+    st.session_state.posizione = pd.read_parquet('file2.parquet')
     convert_columns_to_lowercase(st.session_state.posizione, ('comune', 'provincia'))
 
 if 'database' not in  st.session_state:
-    st.session_state.database = pd.read_parquet(parquet_matrice)
+    url_matrice = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet"
+    response1 = requests.get(url_matrice)
+    with open('file1.parquet', 'wb') as f1:
+        f1.write(response1.content)
+    wait_until_file_downloaded('file1.parquet')
+    st.session_state.database = pd.read_parquet('file1.parquet')
     remove_number_at_end(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     convert_columns_to_lowercase(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     st.session_state.database = st.session_state.database.merge(st.session_state.posizione, left_on='ZONA_ORIG', right_on='comune')
@@ -94,10 +126,20 @@ if 'province' not in st.session_state:
     st.session_state.province = st.session_state.database['PROV_ORIG'].drop_duplicates().sort_values().str.lower().tolist()
 
 if 'turisti' not in st.session_state:
-    st.session_state.turisti = pd.read_parquet(parquet_tur_prov)
+    url_tur_prov = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.parquet"
+    response3 = requests.get(url_tur_prov)
+    with open('file3.parquet', 'wb') as f3:
+        f3.write(response3.content)
+    wait_until_file_downloaded('file3.parquet')
+    st.session_state.turisti = pd.read_parquet('file3.parquet')
 
 if 'turisti_comuni' not in st.session_state:
-    st.session_state.turisti_comuni = pd.read_parquet(parquet_tur_com)
+    url_tur_com = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.parquet"
+    response4 = requests.get(url_tur_com)
+    with open('file4.parquet', 'wb') as f4:
+        f4.write(response4.content)
+    wait_until_file_downloaded('file4.parquet')
+    st.session_state.turisti_comuni = pd.read_parquet('file4.parquet')
 
 
 
