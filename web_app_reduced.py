@@ -5,15 +5,17 @@ import plotly.express as px
 from utils import *
 import numpy as np
 import streamlit.components.v1 as components
+import time
 
 ############################################################
 
 #POSIZIONE CSV
 
-csv_matrice = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/matrice_od_2020_passeggeri.csv'
-csv_posizione = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/pos.csv'
-csv_tur_prov = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.csv'
-csv_tur_com = '/Users/alessandromacrina/Documents/Università/Tesi/CSV/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.csv'
+parquet_matrice = '/Users/alessandromacrina/Documents/Università/Tesi/Parquet/matrice_od_2020_passeggeri.parquet'
+parquet_posizione = '/Users/alessandromacrina/Documents/Università/Tesi/Parquet/pos.parquet'
+parquet_tur_prov = '/Users/alessandromacrina/Documents/Università/Tesi/Parquet/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.parquet'
+parquet_tur_com = '/Users/alessandromacrina/Documents/Università/Tesi/Parquet/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.parquet'
+
 
 ############################################################
 
@@ -60,6 +62,10 @@ regioni_italiane = [
     "VENETO"
 ]
 
+zone_svizzera = ['resto svizzera', 'locarnese', 'bellinzonesse', 'lugano centro', 'lugano malcantone',
+                'lugano pian scairollo', 'mendrisiotto pian faloppi', 'mendrisiotto stabio', 
+                'piano di magadino', 'resto del luganese', 'resto del mendrisiotto', 'tre valli', 
+                'mesolcina', 'resto grigione']
 
 
 vuoto = True
@@ -67,13 +73,15 @@ vuoto = True
 ################################################################
 
 # SESSION STATE
+start_time = time.time()
+
 
 if 'posizione' not in st.session_state:
-    st.session_state.posizione = pd.read_csv(csv_posizione)
+    st.session_state.posizione = pd.read_parquet(parquet_posizione)
     convert_columns_to_lowercase(st.session_state.posizione, ('comune', 'provincia'))
 
 if 'database' not in  st.session_state:
-    st.session_state.database = pd.read_csv(csv_matrice)
+    st.session_state.database = pd.read_parquet(parquet_matrice)
     remove_number_at_end(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     convert_columns_to_lowercase(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     st.session_state.database = st.session_state.database.merge(st.session_state.posizione, left_on='ZONA_ORIG', right_on='comune')
@@ -94,10 +102,20 @@ if 'province' not in st.session_state:
     st.session_state.province = st.session_state.database['PROV_ORIG'].drop_duplicates().sort_values().str.lower().tolist()
 
 if 'turisti' not in st.session_state:
-    st.session_state.turisti = pd.read_csv(csv_tur_prov)
+    st.session_state.turisti = pd.read_parquet(parquet_tur_prov)
 
 if 'turisti_comuni' not in st.session_state:
-    st.session_state.turisti_comuni = pd.read_csv(csv_tur_com)
+    st.session_state.turisti_comuni = pd.read_parquet(parquet_tur_com)
+
+if 'database_ch' not in st.session_state:
+    st.session_state.database_ch = pd.read_parquet(parquet_matrice)
+    st.session_state.database_ch = st.session_state.database_ch.loc[((st.session_state.database_ch['PROV_ORIG'] == 'VA') | (st.session_state.database_ch['PROV_ORIG'] == 'CO')) & (st.session_state.database_ch['ZONA_DEST'] == 'SVIZZERA')]
+    st.session_state.database_ch = my_groupby(st.session_state.database_ch,['PROV_ORIG', 'FASCIA_ORARIA'])
+    st.session_state.database_ch['TOT'] = st.session_state.database_ch[colonne].sum(axis=1)
+
+end_time = time.time()
+elapsed_time = end_time - start_time
+print("Elaborazione session state: ", elapsed_time, "secondi")
 
 
 
@@ -120,7 +138,7 @@ st.markdown('***')
 
 orig = st.sidebar.selectbox('Seleziona comune di origine',  st.session_state.comune, index=None)
 dest = st.sidebar.selectbox('Seleziona comune di destinazione', st.session_state.comune, index=None)
-st.sidebar.write('---------------')
+st.sidebar.markdown('***')
 prov_tur = st.sidebar.selectbox('Seleziona una provincia per visualizzare i dati relativi sui flussi turistici',  st.session_state.turisti['Provincia'].drop_duplicates().sort_values().tolist(), index=None)
 com_tur = st.sidebar.selectbox('Seleziona un comune per visualizzare i dati relativi sui flussi turistici', st.session_state.turisti_comuni['Comune'].drop_duplicates().sort_values().tolist(), index=None)
 
@@ -137,7 +155,7 @@ if ((orig != None) & (dest != None)):
         vuoto = False
 
     if not vuoto:
-        st.write('Spostamenti nella tratta ' + orig.capitalize() + ' -> ' + dest.capitalize() + ' divisi per fascia oraria')  
+        st.write(f'**Spostamenti nella tratta {orig.capitalize()} -> {dest.capitalize()} divisi per fascia oraria**')  
 
         result = my_groupby(df, ['FASCIA_ORARIA', 'ZONA_DEST', 'ZONA_ORIG','lat_orig', 'long_orig', 'lat_dest', 'long_dest'])
         result['TOT'] = result[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO",
@@ -156,7 +174,7 @@ if ((orig != None) & (dest != None)):
 
         ## LINE CHART MOTIVO SPOSTAMENTO ##
 
-        st.write('Variazione del motivo di spostamento nel tempo')
+        st.write('**Variazione del motivo di spostamento nel tempo**')
         lc_df = pd.DataFrame()
         lc_df['FASCIA_ORARIA'] = hours
         lc_df['Lavoro'] = result[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO","LAV_GOMMA","LAV_BICI","LAV_PIEDI","LAV_ALTRO"]].sum(axis=1)
@@ -169,7 +187,7 @@ if ((orig != None) & (dest != None)):
 
         ## LINE CHART MODO SPOSTAMENTO ##
 
-        st.write('Variazione del modo di spostamento nel tempo')
+        st.write('**Variazione del modo di spostamento nel tempo**')
         lc2_df = pd.DataFrame()
         lc2_df['FASCIA_ORARIA'] = hours
         lc2_df['Macchina conducente'] = result[["LAV_COND","STU_COND","AFF_COND","OCC_COND","RIT_COND","AFF_COND"]].sum(axis=1)
@@ -186,7 +204,7 @@ if ((orig != None) & (dest != None)):
 
         ## HEATMAP DESTINAZIONE SPOSTAMENTO ##
 
-
+        st.write(f'**Heat map degli spostamenti con partenza dal comune di {orig.capitalize()}**')
         heat_df = st.session_state.database.loc[st.session_state.database['ZONA_ORIG'] == orig]
         heat_df = my_groupby(heat_df, ['ZONA_ORIG', 'ZONA_DEST', 'lat_dest', 'long_dest'])
         heat_df['TOT'] = heat_df[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO",
@@ -216,14 +234,119 @@ if ((orig != None) & (dest != None)):
         st.warning('Per questa tratta non sono disponibili dati :(')
 else:
     st.warning('Seleziona un comune di partenza e uno d\'arrivo')
+
 st.markdown('***')
+
+## SPOSTAMENTI VERSO LA SVIZZERA ##
+
+st.title('**Spostamenti verso la Svizzera**')
+st.markdown('***')
+
+col1, col2 = st.columns(2)
+with col1:
+    tg_va = st.toggle('Varese', False)
+
+with col2:
+    tg_co = st.toggle('Como', False)
+
+
+df_ch_va = st.session_state.database_ch.copy()
+df_ch_co = st.session_state.database_ch.copy()
+
+df_ch_va = df_ch_va.loc[df_ch_va['PROV_ORIG']=='VA']
+df_ch_co = df_ch_co.loc[df_ch_co['PROV_ORIG']=='CO']
+
+if tg_va:
+
+    ## LINE CHART TOTALE SPOSTAMENTI PER FASCIA ORARIA ##
+    st.write('\n')
+    st.write('**Spostamenti totali da Varese verso la Svizzera suddivisi per fascia oraria**')
+    st.bar_chart(df_ch_va, x='FASCIA_ORARIA', y='TOT')
+
+    ## LINE CHART MOTIVO SPOSTAMENTO ##
+
+    st.write('**Variazione del motivo di spostamento nel tempo**')
+
+    df_ch_va1 = pd.DataFrame()
+    df_ch_va1['FASCIA_ORARIA'] = hours
+    df_ch_va1['Lavoro'] = df_ch_va[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO","LAV_GOMMA","LAV_BICI","LAV_PIEDI","LAV_ALTRO"]].sum(axis=1).tolist()
+    df_ch_va1['Studenti'] = df_ch_va[["STU_COND","STU_PAX","STU_MOTO","STU_FERRO","STU_GOMMA","STU_BICI","STU_PIEDI","STU_ALTRO"]].sum(axis=1).tolist()
+    df_ch_va1['Occasionale'] = df_ch_va[["OCC_COND","OCC_PAX","OCC_MOTO","OCC_FERRO","OCC_GOMMA","OCC_BICI","OCC_PIEDI","OCC_ALTRO"]].sum(axis=1).tolist()
+    df_ch_va1['Ritorno'] = df_ch_va[["RIT_COND","RIT_PAX","RIT_MOTO","RIT_FERRO","RIT_GOMMA","RIT_BICI","RIT_PIEDI","RIT_ALTRO"]].sum(axis=1).tolist()
+    df_ch_va1['Affari'] = df_ch_va[["AFF_COND","AFF_PAX","AFF_MOTO","AFF_FERRO","AFF_GOMMA","AFF_BICI","AFF_PIEDI","AFF_ALTRO"]].sum(axis=1).tolist()
+
+    st.line_chart(df_ch_va1, x='FASCIA_ORARIA', y=['Lavoro', 'Studenti', 'Occasionale', 'Ritorno', 'Affari'])
+    
+    ## LINE CHART MODALITA' DI SPOSTAMENTO ##
+    st.write('**Variazione del modo di spostamento nel tempo**')
+
+    df_ch_va2 = pd.DataFrame()
+    df_ch_va2['FASCIA_ORARIA'] = hours
+    df_ch_va2['Macchina conducente'] = df_ch_va[["LAV_COND","STU_COND","AFF_COND","OCC_COND","RIT_COND","AFF_COND"]].sum(axis=1).tolist()
+    df_ch_va2['Macchina passeggero'] = df_ch_va[["LAV_PAX","STU_PAX","AFF_PAX","OCC_PAX","RIT_PAX","AFF_PAX"]].sum(axis=1).tolist()
+    df_ch_va2['Moto'] = df_ch_va[["LAV_MOTO","STU_MOTO","AFF_MOTO","OCC_MOTO","RIT_MOTO","AFF_MOTO"]].sum(axis=1).tolist()
+    df_ch_va2['Pullman'] = df_ch_va[["LAV_GOMMA","STU_GOMMA","AFF_GOMMA","OCC_GOMMA","RIT_GOMMA","AFF_GOMMA"]].sum(axis=1).tolist()
+    df_ch_va2['Treno'] = df_ch_va[["LAV_FERRO","STU_FERRO","AFF_FERRO","OCC_FERRO","RIT_FERRO","AFF_FERRO"]].sum(axis=1).tolist()
+    df_ch_va2['Bici'] = df_ch_va[["LAV_BICI","STU_BICI","AFF_BICI","OCC_BICI","RIT_BICI","AFF_BICI"]].sum(axis=1).tolist()
+    df_ch_va2['Piedi'] = df_ch_va[["LAV_PIEDI","STU_PIEDI","AFF_PIEDI","OCC_PIEDI","RIT_PIEDI","AFF_PIEDI"]].sum(axis=1).tolist()
+    df_ch_va2['Altro'] = df_ch_va[["LAV_ALTRO","STU_ALTRO","AFF_ALTRO","OCC_ALTRO","RIT_ALTRO","AFF_ALTRO"]].sum(axis=1).tolist()
+    st.line_chart(df_ch_va2, x='FASCIA_ORARIA', y=['Macchina conducente', 'Macchina passeggero', 'Moto', 'Treno', 'Pullman', 'Bici', 'Piedi', 'Altro'])
+
+if tg_co:
+     ## LINE CHART TOTALE SPOSTAMENTI PER FASCIA ORARIA ##
+
+    st.write('\n')
+    st.write('**Spostamenti totali da Como verso la Svizzera suddivisi per fascia oraria**')
+    st.bar_chart(df_ch_co, x='FASCIA_ORARIA', y='TOT')
+
+    ## LINE CHART MOTIVO SPOSTAMENTO ##
+
+    st.write('**Variazione del motivo di spostamento nel tempo**')
+    df_ch_co1 = pd.DataFrame()
+    df_ch_co1['FASCIA_ORARIA'] = hours
+    df_ch_co1['Lavoro'] = df_ch_co[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO","LAV_GOMMA","LAV_BICI","LAV_PIEDI","LAV_ALTRO"]].sum(axis=1)
+    df_ch_co1['Studenti'] = df_ch_co[["STU_COND","STU_PAX","STU_MOTO","STU_FERRO","STU_GOMMA","STU_BICI","STU_PIEDI","STU_ALTRO"]].sum(axis=1)
+    df_ch_co1['Occasionale'] = df_ch_co[["OCC_COND","OCC_PAX","OCC_MOTO","OCC_FERRO","OCC_GOMMA","OCC_BICI","OCC_PIEDI","OCC_ALTRO"]].sum(axis=1)
+    df_ch_co1['Ritorno'] = df_ch_co[["RIT_COND","RIT_PAX","RIT_MOTO","RIT_FERRO","RIT_GOMMA","RIT_BICI","RIT_PIEDI","RIT_ALTRO"]].sum(axis=1)
+    df_ch_co1['Affari'] = df_ch_co[["AFF_COND","AFF_PAX","AFF_MOTO","AFF_FERRO","AFF_GOMMA","AFF_BICI","AFF_PIEDI","AFF_ALTRO"]].sum(axis=1)
+
+    st.line_chart(df_ch_co1, x='FASCIA_ORARIA', y=['Lavoro', 'Studenti', 'Occasionale', 'Ritorno', 'Affari'])
+
+    ## LINE CHART MODALITA' DI SPOSTAMENTO ##
+    st.write('**Variazione del modo di spostamento nel tempo**')
+
+    df_ch_co2 = pd.DataFrame()
+    df_ch_co2['FASCIA_ORARIA'] = hours
+    df_ch_co2['Macchina conducente'] = df_ch_co[["LAV_COND","STU_COND","AFF_COND","OCC_COND","RIT_COND","AFF_COND"]].sum(axis=1)
+    df_ch_co2['Macchina passeggero'] = df_ch_co[["LAV_PAX","STU_PAX","AFF_PAX","OCC_PAX","RIT_PAX","AFF_PAX"]].sum(axis=1)
+    df_ch_co2['Moto'] = df_ch_co[["LAV_MOTO","STU_MOTO","AFF_MOTO","OCC_MOTO","RIT_MOTO","AFF_MOTO"]].sum(axis=1)
+    df_ch_co2['Pullman'] = df_ch_co[["LAV_GOMMA","STU_GOMMA","AFF_GOMMA","OCC_GOMMA","RIT_GOMMA","AFF_GOMMA"]].sum(axis=1)
+    df_ch_co2['Treno'] = df_ch_co[["LAV_FERRO","STU_FERRO","AFF_FERRO","OCC_FERRO","RIT_FERRO","AFF_FERRO"]].sum(axis=1)
+    df_ch_co2['Bici'] = df_ch_co[["LAV_BICI","STU_BICI","AFF_BICI","OCC_BICI","RIT_BICI","AFF_BICI"]].sum(axis=1)
+    df_ch_co2['Piedi'] = df_ch_co[["LAV_PIEDI","STU_PIEDI","AFF_PIEDI","OCC_PIEDI","RIT_PIEDI","AFF_PIEDI"]].sum(axis=1)
+    df_ch_co2['Altro'] = df_ch_co[["LAV_ALTRO","STU_ALTRO","AFF_ALTRO","OCC_ALTRO","RIT_ALTRO","AFF_ALTRO"]].sum(axis=1)
+    st.line_chart(df_ch_co2, x='FASCIA_ORARIA', y=['Macchina conducente', 'Macchina passeggero', 'Moto', 'Treno', 'Pullman', 'Bici', 'Piedi', 'Altro'])
+
+
+
+
+st.markdown('***')
+
+
+## ANALISI TURISMO ##
+
 st.title('Flussi turistici nelle province lombarde')
 st.markdown('***')
+
 
 
 ## BAR CHART TURISMO PER PROVINCIA ##
 
 if prov_tur != None:
+    
+    st.write('\n')
+    st.write(f'**Presenze e arrivi totali nella provincia di {prov_tur}**')
+
     df_bct = st.session_state.turisti.loc[st.session_state.turisti['Provincia'] == prov_tur][['Mese', 'Arrivi - Totale', 'Presenze - Totale']]
     df_bct = df_bct.groupby('Mese')[['Arrivi - Totale', 'Presenze - Totale']].sum().reset_index()
     df_bct['Mese'] = pd.Categorical(df_bct['Mese'], categories=mesi, ordered=True)
@@ -237,17 +360,17 @@ if prov_tur != None:
 
     ## LINE CHART PROVENIENZA TURISTI ##
 
-    mese = st.select_slider('Mese', mesi)
-
+    st.write('**Provenienza turisti**')
+    mese = st.select_slider('Mese', mesi, help='muovi il cursore per selezionare il mese')
     df_lct = st.session_state.turisti.loc[(st.session_state.turisti['Provincia'] == prov_tur) & (st.session_state.turisti['Mese'] == mese)].groupby('Provenienza turisti')[['Arrivi - Totale', 'Presenze - Totale']].sum().reset_index()
-
+    
     st.line_chart(df_lct.loc[df_lct['Provenienza turisti'].isin(regioni_italiane)].sort_values('Arrivi - Totale', ascending = False), x= 'Provenienza turisti', y='Arrivi - Totale')
     st.line_chart(df_lct.loc[-df_lct['Provenienza turisti'].isin(regioni_italiane)].sort_values('Arrivi - Totale', ascending = False).head(25), x= 'Provenienza turisti', y='Arrivi - Totale')
 else:
     st.warning('Seleziona una provincia')
 
 st.markdown('***')
-st.title('Flussi turistici nei comuni lombardi')
+st.title('**Flussi turistici nei comuni lombardi**')
 st.markdown('***')
 
 if com_tur != None:
@@ -259,11 +382,11 @@ if com_tur != None:
     df_bctc2.sort_values('Mese')
 
 
-    st.write('Media di turisti nel comune di ' + com_tur)
+    st.write(f'**Media di turisti nel comune di {com_tur}**')
     st.bar_chart(df_bctc2, x= 'Mese', y = 'Presenze')
 
     st.write('')
-    st.write('Variazione negli anni dei turisti')
+    st.write(f'**Variazione negli anni dei turisti nel comune di {com_tur}**')
     df_bctc_tmp = pd.DataFrame(columns = ['Mese', 2019, 2020, 2021, 2022])
 
     df_bctc_tmp['Mese'] = mesi
