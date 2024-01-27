@@ -7,6 +7,7 @@ import numpy as np
 import streamlit.components.v1 as components
 import requests
 import time
+import io
 
 
 ############################################################
@@ -66,19 +67,14 @@ start_time = time.time()
 if 'posizione' not in st.session_state:
     url_posizione = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/pos.parquet"
     response2 = requests.get(url_posizione)
-    with open('file2.parquet', 'wb') as f2:
-        f2.write(response2.content)
-    #wait_until_file_downloaded('file2.parquet')
-    st.session_state.posizione = pd.read_parquet('file2.parquet')
+    st.session_state.posizione = pd.read_parquet(io.BytesIO(response2.content))
     convert_columns_to_lowercase(st.session_state.posizione, ('comune', 'provincia'))
 
-if 'database' not in  st.session_state:
+
+if 'database' not in st.session_state:
     url_matrice = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet"
     response1 = requests.get(url_matrice)
-    with open('file1.parquet', 'wb') as f1:
-        f1.write(response1.content)
-    #wait_until_file_downloaded('file1.parquet')
-    st.session_state.database = pd.read_parquet('file1.parquet')
+    st.session_state.database = pd.read_parquet(io.BytesIO(response1.content))
     remove_number_at_end(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     convert_columns_to_lowercase(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     st.session_state.database = st.session_state.database.merge(st.session_state.posizione, left_on='ZONA_ORIG', right_on='comune')
@@ -101,25 +97,17 @@ if 'province' not in st.session_state:
 if 'turisti' not in st.session_state:
     url_tur_prov = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.parquet"
     response3 = requests.get(url_tur_prov)
-    with open('file3.parquet', 'wb') as f3:
-        f3.write(response3.content)
-    #wait_until_file_downloaded('file3.parquet')
-    st.session_state.turisti = pd.read_parquet('file3.parquet')
+    st.session_state.turisti = pd.read_parquet(io.BytesIO(response3.content))
 
 if 'turisti_comuni' not in st.session_state:
     url_tur_com = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.parquet"
     response4 = requests.get(url_tur_com)
-    with open('file4.parquet', 'wb') as f4:
-        f4.write(response4.content)
-    #wait_until_file_downloaded('file4.parquet')
-    st.session_state.turisti_comuni = pd.read_parquet('file4.parquet')
+    st.session_state.turisti_comuni = pd.read_parquet(io.BytesIO(response4.content))
 
 if 'database_ch' not in st.session_state:
     url_matrice = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet"
     response5 = requests.get(url_matrice)
-    with open('file5.parquet', 'wb') as f5:
-        f5.write(response5.content)
-    st.session_state.database_ch = pd.read_parquet('file5.parquet')
+    st.session_state.database_ch = pd.read_parquet(io.BytesIO(response5.content))
     st.session_state.database_ch = st.session_state.database_ch.loc[((st.session_state.database_ch['PROV_ORIG'] == 'VA') | (st.session_state.database_ch['PROV_ORIG'] == 'CO')) & (st.session_state.database_ch['ZONA_DEST'] == 'SVIZZERA')]
     st.session_state.database_ch = my_groupby(st.session_state.database_ch,['PROV_ORIG', 'FASCIA_ORARIA'])
     st.session_state.database_ch['TOT'] = st.session_state.database_ch[colonne].sum(axis=1)
