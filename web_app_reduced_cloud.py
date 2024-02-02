@@ -12,6 +12,8 @@ import io
 
 ############################################################
 
+# definizione variabili globali
+
 colonne = ["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO",
                                                                                     "LAV_GOMMA","LAV_BICI","LAV_PIEDI","LAV_ALTRO",
                                                                                     "STU_COND","STU_PAX","STU_MOTO","STU_FERRO",
@@ -55,26 +57,22 @@ regioni_italiane = [
     "VENETO"
 ]
 
-
-
 vuoto = True
 
 ################################################################
 
 # SESSION STATE
+
+# timer per calcolare quanto tempo ci vuole per inzializzare il session state
 start_time = time.time()
 
 if 'posizione' not in st.session_state:
-    url_posizione = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/pos.parquet"
-    response2 = requests.get(url_posizione)
-    st.session_state.posizione = pd.read_parquet(io.BytesIO(response2.content))
+    st.session_state.posizione = leggi_parquet("https://raw.githubusercontent.com/alessandromacrina/web_app/main/pos.parquet")
     convert_columns_to_lowercase(st.session_state.posizione, ('comune', 'provincia'))
 
 
 if 'database' not in st.session_state:
-    url_matrice = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet"
-    response1 = requests.get(url_matrice)
-    st.session_state.database = pd.read_parquet(io.BytesIO(response1.content))
+    st.session_state.database = leggi_parquet("https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet")
     remove_number_at_end(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     convert_columns_to_lowercase(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
     st.session_state.database = st.session_state.database.merge(st.session_state.posizione, left_on='ZONA_ORIG', right_on='comune')
@@ -95,22 +93,18 @@ if 'province' not in st.session_state:
     st.session_state.province = st.session_state.database['PROV_ORIG'].drop_duplicates().sort_values().str.lower().tolist()
 
 if 'turisti' not in st.session_state:
-    url_tur_prov = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.parquet"
-    response3 = requests.get(url_tur_prov)
-    st.session_state.turisti = pd.read_parquet(io.BytesIO(response3.content))
+    st.session_state.turisti = leggi_parquet("https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nelle_province_lombarde_20240113.parquet")
 
 if 'turisti_comuni' not in st.session_state:
-    url_tur_com = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.parquet"
-    response4 = requests.get(url_tur_com)
-    st.session_state.turisti_comuni = pd.read_parquet(io.BytesIO(response4.content))
+    st.session_state.turisti_comuni = leggi_parquet("https://raw.githubusercontent.com/alessandromacrina/web_app/main/Flussi_turistici_per_mese_nei_comuni_lombardi_20240113.parquet")
 
 if 'database_ch' not in st.session_state:
-    url_matrice = "https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet"
-    response5 = requests.get(url_matrice)
-    st.session_state.database_ch = pd.read_parquet(io.BytesIO(response5.content))
+    st.session_state.database_ch = leggi_parquet("https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet")
     st.session_state.database_ch = st.session_state.database_ch.loc[((st.session_state.database_ch['PROV_ORIG'] == 'VA') | (st.session_state.database_ch['PROV_ORIG'] == 'CO')) & (st.session_state.database_ch['ZONA_DEST'] == 'SVIZZERA')]
     st.session_state.database_ch = my_groupby(st.session_state.database_ch,['PROV_ORIG', 'FASCIA_ORARIA'])
     st.session_state.database_ch['TOT'] = st.session_state.database_ch[colonne].sum(axis=1)
+
+# stop del timer e stampa del tempo di elaborazione session state
 
 end_time = time.time()
 elapsed_time = end_time - start_time
@@ -118,6 +112,8 @@ print("Elaborazione session state: ", elapsed_time, "secondi")
 
 
 ################################################################
+
+# inizio applicazione web con funzioni streamlit
 
 st.title('Mobilità nella provincia di Varese e Como')
 st.markdown('***')
@@ -156,17 +152,7 @@ if ((orig != None) & (dest != None)):
         st.write(f'**Spostamenti nella tratta {orig.capitalize()} -> {dest.capitalize()} divisi per fascia oraria**')  
 
         result = my_groupby(df, ['FASCIA_ORARIA', 'ZONA_DEST', 'ZONA_ORIG','lat_orig', 'long_orig', 'lat_dest', 'long_dest'])
-        result['TOT'] = result[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO",
-                                                                                        "LAV_GOMMA","LAV_BICI","LAV_PIEDI","LAV_ALTRO",
-                                                                                        "STU_COND","STU_PAX","STU_MOTO","STU_FERRO",
-                                                                                        "STU_GOMMA","STU_BICI","STU_PIEDI","STU_ALTRO",
-                                                                                        "OCC_COND","OCC_PAX","OCC_MOTO","OCC_FERRO",
-                                                                                        "OCC_GOMMA","OCC_BICI","OCC_PIEDI","OCC_ALTRO",
-                                                                                        "AFF_COND","AFF_PAX","AFF_MOTO","AFF_FERRO",
-                                                                                        "AFF_GOMMA","AFF_BICI","AFF_PIEDI","AFF_ALTRO",
-                                                                                        "RIT_COND","RIT_PAX","RIT_MOTO","RIT_FERRO",
-                                                                                        "RIT_GOMMA","RIT_BICI","RIT_PIEDI",
-                                                                                        "RIT_ALTRO"]].sum(axis=1)
+        result = calcola_totale(result)
         
         st.bar_chart(result, x = 'FASCIA_ORARIA', y = 'TOT')
 
@@ -197,7 +183,6 @@ if ((orig != None) & (dest != None)):
         lc2_df['Piedi'] = result[["LAV_PIEDI","STU_PIEDI","AFF_PIEDI","OCC_PIEDI","RIT_PIEDI","AFF_PIEDI"]].sum(axis=1)
         lc2_df['Altro'] = result[["LAV_ALTRO","STU_ALTRO","AFF_ALTRO","OCC_ALTRO","RIT_ALTRO","AFF_ALTRO"]].sum(axis=1)
 
-
         st.line_chart(lc2_df, x='FASCIA_ORARIA', y=['Macchina conducente', 'Macchina passeggero', 'Moto', 'Treno', 'Pullman', 'Bici', 'Piedi', 'Altro'])
 
         ## HEATMAP DESTINAZIONE SPOSTAMENTO ##
@@ -205,17 +190,7 @@ if ((orig != None) & (dest != None)):
         st.write(f'**Heat map degli spostamenti con partenza dal comune di {orig.capitalize()}**')
         heat_df = st.session_state.database.loc[st.session_state.database['ZONA_ORIG'] == orig]
         heat_df = my_groupby(heat_df, ['ZONA_ORIG', 'ZONA_DEST', 'lat_dest', 'long_dest'])
-        heat_df['TOT'] = heat_df[["LAV_COND","LAV_PAX","LAV_MOTO","LAV_FERRO",
-                                "LAV_GOMMA","LAV_BICI","LAV_PIEDI","LAV_ALTRO",
-                                "STU_COND","STU_PAX","STU_MOTO","STU_FERRO",
-                                "STU_GOMMA","STU_BICI","STU_PIEDI","STU_ALTRO",
-                                "OCC_COND","OCC_PAX","OCC_MOTO","OCC_FERRO",
-                                "OCC_GOMMA","OCC_BICI","OCC_PIEDI","OCC_ALTRO",
-                                "AFF_COND","AFF_PAX","AFF_MOTO","AFF_FERRO",
-                                "AFF_GOMMA","AFF_BICI","AFF_PIEDI","AFF_ALTRO",
-                                "RIT_COND","RIT_PAX","RIT_MOTO","RIT_FERRO",
-                                "RIT_GOMMA","RIT_BICI","RIT_PIEDI",
-                                "RIT_ALTRO"]].sum(axis=1)
+        heat_df = calcola_totale(heat_df)
         
         heat_df = hp_threshold(heat_df, 'TOT', 0.1, 1500)
 
@@ -248,11 +223,9 @@ with col2:
     tg_co = st.toggle('Como', False)
 
 
-df_ch_va = st.session_state.database_ch.copy()
-df_ch_co = st.session_state.database_ch.copy()
 
-df_ch_va = df_ch_va.loc[df_ch_va['PROV_ORIG']=='VA']
-df_ch_co = df_ch_co.loc[df_ch_co['PROV_ORIG']=='CO']
+df_ch_va = st.session_state.database_ch.loc[st.session_state.database_ch['PROV_ORIG']=='VA']
+df_ch_co = st.session_state.database_ch.loc[st.session_state.database_ch['PROV_ORIG']=='CO']
 
 if tg_va:
 
@@ -405,7 +378,6 @@ if com_tur != None:
 
 else:
     st.warning('Seleziona un comune')
-
 
 
 ####################################################################
