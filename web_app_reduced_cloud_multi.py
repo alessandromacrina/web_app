@@ -64,7 +64,7 @@ vuoto = True
 
 ################################################################
 
-# SESSION STATE
+## SESSION STATE ##
 
 # timer per calcolare quanto tempo ci vuole per inzializzare il session state
 start_time = time.time()
@@ -76,13 +76,21 @@ if 'posizione' not in st.session_state:
 
 if 'database' not in st.session_state:
     st.session_state.database = leggi_parquet("https://raw.githubusercontent.com/alessandromacrina/web_app/main/matrice_od_2020_passeggeri.parquet")
+    # rimuove eventuali numeri presenti alla fine del comune
     remove_number_at_end(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
+    # converte in lowercase i nomi dei comuni
     convert_columns_to_lowercase(st.session_state.database, ('ZONA_ORIG', 'ZONA_DEST'))
+    #merge con il dataframe "posizione" per aggiungere al dataframe "database" la longitudine e latitudine del comune di origine
     st.session_state.database = st.session_state.database.merge(st.session_state.posizione, left_on='ZONA_ORIG', right_on='comune')
+    #rimuovo le colonne che non servono
     st.session_state.database.drop(['comune', 'provincia'], axis=1, inplace=True)
+    #rinomino le colonne contenenti la latitudine e la longitudine
     st.session_state.database.rename(columns={'latitudine':'lat_orig', 'longitudine':'long_orig'}, inplace=True)
+    #effettuo lo stesso merge di prima però per il comune di destinazione
     st.session_state.database = st.session_state.database.merge(st.session_state.posizione, left_on='ZONA_DEST', right_on='comune')
+    #rimuovo le colonne che non servono
     st.session_state.database.drop(['comune', 'provincia'], axis=1, inplace=True)
+    #rinomino le colonne contenenti la latitudine e la longitudine
     st.session_state.database.rename(columns={'latitudine':'lat_dest', 'longitudine':'long_dest'}, inplace=True)
 
 if 'database_red' not in  st.session_state:
@@ -108,14 +116,15 @@ if 'database_ch' not in st.session_state:
     st.session_state.database_ch['TOT'] = st.session_state.database_ch[colonne].sum(axis=1)
 
 if 'database_emissioni' not in st.session_state:
-    response = requests.get('https://raw.githubusercontent.com/alessandromacrina/web_app/main/Tabella1_FE_CO2_veic-km_autovetture_strada.xlsx')
-    st.session_state.database_emissioni = pd.read_excel(io.BytesIO(response.content))
-# stop del timer e stampa del tempo di elaborazione session state
+    st.session_state.database_emissioni = leggi_parquet('https://raw.githubusercontent.com/alessandromacrina/web_app/main/emissioni.parquet')
 
+
+# stop del timer e stampa del tempo di elaborazione session state
 end_time = time.time()
 elapsed_time = end_time - start_time
 print("Elaborazione session state: ", elapsed_time, "secondi")
 
+## FINE SESSION STATE ##
 
 ################################################################
 
@@ -171,8 +180,6 @@ def origine_destinazione():
             lc_df['Occasionale'] = result[["OCC_COND","OCC_PAX","OCC_MOTO","OCC_FERRO","OCC_GOMMA","OCC_BICI","OCC_PIEDI","OCC_ALTRO"]].sum(axis=1)
             lc_df['Ritorno'] = result[["RIT_COND","RIT_PAX","RIT_MOTO","RIT_FERRO","RIT_GOMMA","RIT_BICI","RIT_PIEDI","RIT_ALTRO"]].sum(axis=1)
             lc_df['Affari'] = result[["AFF_COND","AFF_PAX","AFF_MOTO","AFF_FERRO","AFF_GOMMA","AFF_BICI","AFF_PIEDI","AFF_ALTRO"]].sum(axis=1)
-
-            #st.line_chart(lc_df, x='FASCIA_ORARIA', y=['Lavoro', 'Studenti', 'Occasionale', 'Ritorno', 'Affari'])
 
             lc_df_melted = pd.melt(lc_df, id_vars='FASCIA_ORARIA', value_vars=['Lavoro', 'Studenti', 'Occasionale', 'Ritorno', 'Affari'])
             chart = alt.Chart(lc_df_melted).mark_line().encode(x='FASCIA_ORARIA:N', y='value:Q', color='variable:N').properties(width=825)
@@ -235,10 +242,10 @@ def spostamenti_dal_comune():
 
         st.plotly_chart(fig)
 
-        ## BAR CHAR DESTINAZIONI ##
+        ## BAR CHART DESTINAZIONI ##
 
         st.write(f'**Principali destinazioni partendo dal comune di {com_orig.capitalize()}**')
-        df_bcdest = st.session_state.database_red.loc[(st.session_state.database['ZONA_ORIG'] == com_orig) & (st.session_state.database['ZONA_DEST'] != com_orig)]
+        df_bcdest = st.session_state.database_red.loc[(st.session_state.database_red['ZONA_ORIG'] == com_orig) & (st.session_state.database_red['ZONA_DEST'] != com_orig)]
         ora = st.select_slider('Fascia oraria', hours)
         df_bcdest = df_bcdest.loc[df_bcdest['FASCIA_ORARIA'] == ora]
         df_bcdest = my_groupby(df_bcdest, ['ZONA_ORIG','ZONA_DEST'])
@@ -278,7 +285,7 @@ def spostamenti_verso_la_svizzera():
 
     if tg_va:
 
-        ## LINE CHART TOTALE SPOSTAMENTI PER FASCIA ORARIA ##
+        ## BAR CHART TOTALE SPOSTAMENTI PER FASCIA ORARIA ##
         st.write('\n')
         st.write('**Spostamenti totali da Varese verso la Svizzera suddivisi per fascia oraria**')
         st.bar_chart(df_ch_va, x='FASCIA_ORARIA', y='TOT')
@@ -294,8 +301,6 @@ def spostamenti_verso_la_svizzera():
         df_ch_va1['Occasionale'] = df_ch_va[["OCC_COND","OCC_PAX","OCC_MOTO","OCC_FERRO","OCC_GOMMA","OCC_BICI","OCC_PIEDI","OCC_ALTRO"]].sum(axis=1).tolist()
         df_ch_va1['Ritorno'] = df_ch_va[["RIT_COND","RIT_PAX","RIT_MOTO","RIT_FERRO","RIT_GOMMA","RIT_BICI","RIT_PIEDI","RIT_ALTRO"]].sum(axis=1).tolist()
         df_ch_va1['Affari'] = df_ch_va[["AFF_COND","AFF_PAX","AFF_MOTO","AFF_FERRO","AFF_GOMMA","AFF_BICI","AFF_PIEDI","AFF_ALTRO"]].sum(axis=1).tolist()
-
-        #st.line_chart(df_ch_va1, x='FASCIA_ORARIA', y=['Lavoro', 'Studenti', 'Occasionale', 'Ritorno', 'Affari'])
         
         lc_df_melted = pd.melt(df_ch_va1, id_vars='FASCIA_ORARIA', value_vars=['Lavoro', 'Studenti', 'Occasionale', 'Ritorno', 'Affari'])
         chart = alt.Chart(lc_df_melted).mark_line().encode(x='FASCIA_ORARIA:N', y='value:Q', color='variable:N').properties(width=825)
@@ -317,7 +322,6 @@ def spostamenti_verso_la_svizzera():
         df_ch_va2['Piedi'] = df_ch_va[["LAV_PIEDI","STU_PIEDI","AFF_PIEDI","OCC_PIEDI","RIT_PIEDI","AFF_PIEDI"]].sum(axis=1).tolist()
         df_ch_va2['Altro'] = df_ch_va[["LAV_ALTRO","STU_ALTRO","AFF_ALTRO","OCC_ALTRO","RIT_ALTRO","AFF_ALTRO"]].sum(axis=1).tolist()
         
-        #st.line_chart(df_ch_va2, x='FASCIA_ORARIA', y=['Macchina conducente', 'Macchina passeggero', 'Moto', 'Treno', 'Pullman', 'Bici', 'Piedi', 'Altro'])
 
         lc_df2_melted = pd.melt(df_ch_va2, id_vars='FASCIA_ORARIA', value_vars=['Macchina conducente', 'Macchina passeggero', 'Moto', 'Treno', 'Pullman', 'Bici', 'Piedi', 'Altro'])
         chart2 = alt.Chart(lc_df2_melted).mark_line().encode(x='FASCIA_ORARIA:N', y='value:Q', color='variable:N').properties(width=875)
@@ -386,10 +390,9 @@ def analisi_turismo():
     st.markdown('***')
 
 
-    ## BAR CHART TURISMO PER PROVINCIA ##
-
     if prov_tur != None:
-        
+        ## BAR CHART TURISMO PER PROVINCIA ##
+
         st.write('\n')
         st.write(f'**Presenze e arrivi totali nella provincia di {prov_tur}**')
         df_bct = st.session_state.turisti.loc[st.session_state.turisti['Provincia'] == prov_tur][['Anno','Mese', 'Arrivi - Totale', 'Presenze - Totale']]
@@ -436,35 +439,33 @@ def analisi_turismo():
         st.write(f'**Media di turisti nel comune di {com_tur}**')
         st.bar_chart(df_bctc2, x= 'Mese', y = 'Presenze')
 
+        st.write(f'**Permanenza media di turisti nel comune di {com_tur}**')
+        st.bar_chart(df_bctc2, x= 'Mese', y = 'Permanenza media')
+
         st.write('')
         st.write(f'**Variazione negli anni dei turisti nel comune di {com_tur}**')
         df_bctc_tmp = pd.DataFrame(columns = ['Mese', 2019, 2020, 2021, 2022])
-
         df_bctc_tmp['Mese'] = mesi
-        years = [2019, 2020, 2021, 2022]
+        
         df_bctc['Mese'] = pd.Categorical(df_bctc['Mese'], categories=mesi, ordered=True)
         df_bctc = df_bctc.sort_values(['Anno','Mese']).set_index('Mese')
 
-
+        years = [2019, 2020, 2021, 2022]
         for year in years:
             df_bctc_tmp[year] = pd.Series(df_bctc.loc[df_bctc['Anno'] == year]['Presenze'].tolist())
             
-
-        
         df_bctc_tmp.fillna(0, inplace=True)
 
-        
         fig = px.histogram(df_bctc_tmp, x='Mese', y=[2019, 2020, 2021, 2022],
                     barmode='group',
                     height=400
                     )
         st.plotly_chart(fig)
 
-        if com_tur == 'Como':
-            btn_com = st.button('Stampa tabella')
-            if btn_com:
-                st.write(df_bctc)
-                st.write(df_bctc_tmp)
+        # btn_com = st.button('Stampa tabella')
+        # if btn_com:
+        #     st.write(df_bctc)
+        #     st.write(df_bctc_tmp)
 
     else:
         st.warning('Seleziona un comune')
@@ -474,7 +475,7 @@ def analisi_turismo():
 def emissioni_anidride_carbonica():
     st.title('Emissioni anidride carbonica')
     st.write(f'**Come vengono influenzate le emissioni di andride carbonica con l\'inserimento in circolazione di veicoli elettrici?**')
-    st.markdown('I dati mostrati nei grafici sono tratti da [OpenData Regione Lombardia - Matrice OD2020](https://www.dati.lombardia.it/Mobilit-e-trasporti/Matrice-OD2020-Passeggeri/hyqr-mpe2/about_data) e [Emissioni specifiche di anidride carbonica - ISPRA](https://indicatoriambientali.isprambiente.it/sys_ind/577)')
+    st.markdown('I dati mostrati nei grafici sono tratti da [OpenData Regione Lombardia - Matrice OD2020](https://www.dati.lombardia.it/Mobilit-e-trasporti/Matrice-OD2020-Passeggeri/hyqr-mpe2/about_data) e [Emissioni specifiche di anidride carbonica - ISPRA](https://indicatoriambientali.isprambiente.it/it/trasporti/emissioni-specifiche-di-anidride-carbonica)')
     st.markdown('***')
     df_ac_va = st.session_state.database_red.loc[st.session_state.database_red['PROV_ORIG'] == 'VA'][['PROV_ORIG','LAV_COND','STU_COND','OCC_COND','AFF_COND','RIT_COND']]
     df_ac_va['sum'] = df_ac_va[['LAV_COND','STU_COND','OCC_COND','AFF_COND','RIT_COND']].sum(axis=1)
@@ -483,76 +484,79 @@ def emissioni_anidride_carbonica():
     df_ac_co['sum'] = df_ac_co[['LAV_COND','STU_COND','OCC_COND','AFF_COND','RIT_COND']].sum(axis=1)
 
     df_e = st.session_state.database_emissioni.copy()
-    df_e = df_e.drop(labels=[0,6,7], axis=0)
-    
-    df_e = df_e.rename(columns={df_e.columns[0]: 'tipo'})
-    df_e = df_e.rename(columns={df_e.columns[13]: '2018'})
+    df_e.drop(index = [3, 6], inplace = True) 
 
-    df_e['tipo'].replace("Parco autovetture benzina", "Benzina", inplace=True)
-    df_e['tipo'].replace("Parco autovetture gasolio", "Gasolio", inplace=True)
-    df_e['tipo'].replace("Parco autovetture GPL", "GPL", inplace=True)
-    df_e['tipo'].replace("Parco autovetture gas naturale", "Gas naturale", inplace=True)
-    df_e['tipo'].replace("Parco autovetture ibride (benzina - elettrico)", "Ibride", inplace=True)
+    df_e['Motorizzazione'].replace("Parco autovetture benzina", "Benzina", inplace=True)
+    df_e['Motorizzazione'].replace("Parco autovetture gasolio", "Gasolio", inplace=True)
+    df_e['Motorizzazione'].replace("Parco autovetture GPL", "GPL", inplace=True)
+    df_e['Motorizzazione'].replace("Parco autovetture gas naturale", "Gas naturale", inplace=True)
+    df_e['Motorizzazione'].replace("Parco autovetture ibride (benzina - elettrico)", "Ibride", inplace=True)
+
+    ## BAR CHART EMISSIONI ##
 
     st.write(f'**Grafico emissioni di anidride carbonica (gCO₂/km)**')
-    st.write('I dati mostrati riguardano i dati relativi alle macchine circolanti in strada nel 2018')
-    st.bar_chart(df_e, x='tipo', y=[2018])
+    st.write('I dati mostrati riguardano i dati relativi alle macchine circolanti in strada nel 2021')
+    st.bar_chart(df_e, x='Motorizzazione', y=[2021])
 
-    labels = ['Benzina','Gasolio', 'GPL', 'Gas naturale', 'Ibride', 'Elettriche']
-    values = [18120336,18122464,3058231,1019485,262320,12441]
+    ## PIE CHART MOTORIZZAZIONI ##
+
+    labels = ['Benzina','Gasolio', 'GPL', 'Gas naturale', 'Ibride']
+    values = [4668726,3275075,258988,14205,40516]
     fig = px.pie(values=values, names=labels, title='Tipo di alimentazione dei veicoli circolanti')
     st.plotly_chart(fig)
 
+    ## LINE CHART RIDUZIONE EMISSIONI ##
+
     totale_va = df_ac_va['sum'].sum()
     totale_co = df_ac_co['sum'].sum()
-    df_e = df_e[['tipo','2018']]
-    att_co = totale_co * (0.446*df_e.loc[df_e['tipo']=='Benzina']['2018'].to_numpy()[0]+
-                      0.446*df_e.loc[df_e['tipo']=='Gasolio']['2018'].to_numpy()[0]+
-                      0.075*df_e.loc[df_e['tipo']=='GPL']['2018'].to_numpy()[0]+
-                      0.0251*df_e.loc[df_e['tipo']=='Gas naturale']['2018'].to_numpy()[0]+
-                      0.00646*df_e.loc[df_e['tipo']=='Ibride']['2018'].to_numpy()[0])
+    df_e = df_e[['Motorizzazione','2021']]
+    att_co = totale_co * (0.565*df_e.loc[df_e['Motorizzazione']=='Benzina']['2021'].to_numpy()[0]+
+                      0.397*df_e.loc[df_e['Motorizzazione']=='Gasolio']['2021'].to_numpy()[0]+
+                      0.0314*df_e.loc[df_e['Motorizzazione']=='GPL']['2021'].to_numpy()[0]+
+                      0.00172*df_e.loc[df_e['Motorizzazione']=='Gas naturale']['2021'].to_numpy()[0]+
+                      0.00491*df_e.loc[df_e['Motorizzazione']=='Ibride']['2021'].to_numpy()[0])
 
-    att_va = totale_va * (0.446*df_e.loc[df_e['tipo']=='Benzina']['2018'].to_numpy()[0]+
-                        0.446*df_e.loc[df_e['tipo']=='Gasolio']['2018'].to_numpy()[0]+
-                        0.075*df_e.loc[df_e['tipo']=='GPL']['2018'].to_numpy()[0]+
-                        0.0251*df_e.loc[df_e['tipo']=='Gas naturale']['2018'].to_numpy()[0]+
-                        0.00646*df_e.loc[df_e['tipo']=='Ibride']['2018'].to_numpy()[0])
+    att_va = totale_va * (0.565*df_e.loc[df_e['Motorizzazione']=='Benzina']['2021'].to_numpy()[0]+
+                        0.397*df_e.loc[df_e['Motorizzazione']=='Gasolio']['2021'].to_numpy()[0]+
+                        0.0314*df_e.loc[df_e['Motorizzazione']=='GPL']['2021'].to_numpy()[0]+
+                        0.00172*df_e.loc[df_e['Motorizzazione']=='Gas naturale']['2021'].to_numpy()[0]+
+                        0.00491*df_e.loc[df_e['Motorizzazione']=='Ibride']['2021'].to_numpy()[0])
 
-    cinque_co = totale_co * (0.421*df_e.loc[df_e['tipo']=='Benzina']['2018'].to_numpy()[0]+
-                            0.421*df_e.loc[df_e['tipo']=='Gasolio']['2018'].to_numpy()[0]+
-                            0.075*df_e.loc[df_e['tipo']=='GPL']['2018'].to_numpy()[0]+
-                            0.0251*df_e.loc[df_e['tipo']=='Gas naturale']['2018'].to_numpy()[0]+
-                            0.05646*df_e.loc[df_e['tipo']=='Ibride']['2018'].to_numpy()[0])
+    cinque_co = totale_co * (0.54*df_e.loc[df_e['Motorizzazione']=='Benzina']['2021'].to_numpy()[0]+
+                            0.372*df_e.loc[df_e['Motorizzazione']=='Gasolio']['2021'].to_numpy()[0]+
+                            0.0314*df_e.loc[df_e['Motorizzazione']=='GPL']['2021'].to_numpy()[0]+
+                            0.00172*df_e.loc[df_e['Motorizzazione']=='Gas naturale']['2021'].to_numpy()[0]+
+                            0.05491*df_e.loc[df_e['Motorizzazione']=='Ibride']['2021'].to_numpy()[0])
 
-    cinque_va = totale_va * (0.421*df_e.loc[df_e['tipo']=='Benzina']['2018'].to_numpy()[0]+
-                            0.421*df_e.loc[df_e['tipo']=='Gasolio']['2018'].to_numpy()[0]+
-                            0.075*df_e.loc[df_e['tipo']=='GPL']['2018'].to_numpy()[0]+
-                            0.0251*df_e.loc[df_e['tipo']=='Gas naturale']['2018'].to_numpy()[0]+
-                            0.05646*df_e.loc[df_e['tipo']=='Ibride']['2018'].to_numpy()[0])
+    cinque_va = totale_va * (0.54*df_e.loc[df_e['Motorizzazione']=='Benzina']['2021'].to_numpy()[0]+
+                            0.372*df_e.loc[df_e['Motorizzazione']=='Gasolio']['2021'].to_numpy()[0]+
+                            0.0314*df_e.loc[df_e['Motorizzazione']=='GPL']['2021'].to_numpy()[0]+
+                            0.00172*df_e.loc[df_e['Motorizzazione']=='Gas naturale']['2021'].to_numpy()[0]+
+                            0.05491*df_e.loc[df_e['Motorizzazione']=='Ibride']['2021'].to_numpy()[0])
 
-    dieci_co = totale_co * (0.396*df_e.loc[df_e['tipo']=='Benzina']['2018'].to_numpy()[0]+
-                        0.396*df_e.loc[df_e['tipo']=='Gasolio']['2018'].to_numpy()[0]+
-                        0.075*df_e.loc[df_e['tipo']=='GPL']['2018'].to_numpy()[0]+
-                        0.0251*df_e.loc[df_e['tipo']=='Gas naturale']['2018'].to_numpy()[0]+
-                        0.10646*df_e.loc[df_e['tipo']=='Ibride']['2018'].to_numpy()[0])
+    dieci_co = totale_co * (0.515*df_e.loc[df_e['Motorizzazione']=='Benzina']['2021'].to_numpy()[0]+
+                        0.347*df_e.loc[df_e['Motorizzazione']=='Gasolio']['2021'].to_numpy()[0]+
+                        0.0314*df_e.loc[df_e['Motorizzazione']=='GPL']['2021'].to_numpy()[0]+
+                        0.00172*df_e.loc[df_e['Motorizzazione']=='Gas naturale']['2021'].to_numpy()[0]+
+                        0.10646*df_e.loc[df_e['Motorizzazione']=='Ibride']['2021'].to_numpy()[0])
 
-    dieci_va = totale_va * (0.396*df_e.loc[df_e['tipo']=='Benzina']['2018'].to_numpy()[0]+
-                        0.396*df_e.loc[df_e['tipo']=='Gasolio']['2018'].to_numpy()[0]+
-                        0.075*df_e.loc[df_e['tipo']=='GPL']['2018'].to_numpy()[0]+
-                        0.0251*df_e.loc[df_e['tipo']=='Gas naturale']['2018'].to_numpy()[0]+
-                        0.10646*df_e.loc[df_e['tipo']=='Ibride']['2018'].to_numpy()[0])
+    dieci_va = totale_va * (0.515*df_e.loc[df_e['Motorizzazione']=='Benzina']['2021'].to_numpy()[0]+
+                        0.347*df_e.loc[df_e['Motorizzazione']=='Gasolio']['2021'].to_numpy()[0]+
+                        0.0314*df_e.loc[df_e['Motorizzazione']=='GPL']['2021'].to_numpy()[0]+
+                        0.00172*df_e.loc[df_e['Motorizzazione']=='Gas naturale']['2021'].to_numpy()[0]+
+                        0.10646*df_e.loc[df_e['Motorizzazione']=='Ibride']['2021'].to_numpy()[0])
 
-    venti_co = totale_co * (0.346*df_e.loc[df_e['tipo']=='Benzina']['2018'].to_numpy()[0]+
-                        0.346*df_e.loc[df_e['tipo']=='Gasolio']['2018'].to_numpy()[0]+
-                        0.075*df_e.loc[df_e['tipo']=='GPL']['2018'].to_numpy()[0]+
-                        0.0251*df_e.loc[df_e['tipo']=='Gas naturale']['2018'].to_numpy()[0]+
-                        0.20646*df_e.loc[df_e['tipo']=='Ibride']['2018'].to_numpy()[0])
+    venti_co = totale_co * (0.465*df_e.loc[df_e['Motorizzazione']=='Benzina']['2021'].to_numpy()[0]+
+                        0.297*df_e.loc[df_e['Motorizzazione']=='Gasolio']['2021'].to_numpy()[0]+
+                        0.0314*df_e.loc[df_e['Motorizzazione']=='GPL']['2021'].to_numpy()[0]+
+                        0.00172*df_e.loc[df_e['Motorizzazione']=='Gas naturale']['2021'].to_numpy()[0]+
+                        0.20646*df_e.loc[df_e['Motorizzazione']=='Ibride']['2021'].to_numpy()[0])
 
-    venti_va = totale_va * (0.346*df_e.loc[df_e['tipo']=='Benzina']['2018'].to_numpy()[0]+
-                        0.346*df_e.loc[df_e['tipo']=='Gasolio']['2018'].to_numpy()[0]+
-                        0.075*df_e.loc[df_e['tipo']=='GPL']['2018'].to_numpy()[0]+
-                        0.0251*df_e.loc[df_e['tipo']=='Gas naturale']['2018'].to_numpy()[0]+
-                        0.20646*df_e.loc[df_e['tipo']=='Ibride']['2018'].to_numpy()[0])
+    venti_va = totale_va * (0.465*df_e.loc[df_e['Motorizzazione']=='Benzina']['2021'].to_numpy()[0]+
+                        0.297*df_e.loc[df_e['Motorizzazione']=='Gasolio']['2021'].to_numpy()[0]+
+                        0.0314*df_e.loc[df_e['Motorizzazione']=='GPL']['2021'].to_numpy()[0]+
+                        0.00172*df_e.loc[df_e['Motorizzazione']=='Gas naturale']['2021'].to_numpy()[0]+
+                        0.20646*df_e.loc[df_e['Motorizzazione']=='Ibride']['2021'].to_numpy()[0])
 
     # dato preso dal sito UnipolSai che ha ricavato il dato dalle scatole nere installate sulle auto
     # url: https://www.unipolsai.com/sites/corporate/files/pages_related_documents/cs_osservatorio-unipolsai-2019.pdf
