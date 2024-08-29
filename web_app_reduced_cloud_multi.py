@@ -475,7 +475,7 @@ def analisi_turismo():
 def emissioni_anidride_carbonica():
     st.title('Emissioni anidride carbonica')
     st.write(f'**Come vengono influenzate le emissioni di andride carbonica con l\'inserimento in circolazione di veicoli elettrici?**')
-    st.markdown('I dati mostrati nei grafici sono tratti da [OpenData Regione Lombardia - Matrice OD2020](https://www.dati.lombardia.it/Mobilit-e-trasporti/Matrice-OD2020-Passeggeri/hyqr-mpe2/about_data) e [Emissioni specifiche di anidride carbonica - ISPRA](https://indicatoriambientali.isprambiente.it/it/trasporti/emissioni-specifiche-di-anidride-carbonica)')
+    st.markdown('I dati mostrati nei grafici sono tratti da [OpenData Regione Lombardia - Matrice OD2020](https://www.dati.lombardia.it/Mobilit-e-trasporti/Matrice-OD2020-Passeggeri/hyqr-mpe2/about_data), [Quali veicoli circolano in Lombardia?](https://www.dati.lombardia.it/stories/s/Quali-veicoli-circolano-in-Lombardia-/ycz2-6wgd/) e [Emissioni specifiche di anidride carbonica - ISPRA](https://indicatoriambientali.isprambiente.it/it/trasporti/emissioni-specifiche-di-anidride-carbonica)')
     st.markdown('***')
     df_ac_va = st.session_state.database_red.loc[st.session_state.database_red['PROV_ORIG'] == 'VA'][['PROV_ORIG','LAV_COND','STU_COND','OCC_COND','AFF_COND','RIT_COND']]
     df_ac_va['sum'] = df_ac_va[['LAV_COND','STU_COND','OCC_COND','AFF_COND','RIT_COND']].sum(axis=1)
